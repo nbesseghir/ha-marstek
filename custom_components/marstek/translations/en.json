@@ -1,0 +1,18 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Marstek Battery Setup",
+        "description": "Bitte IP und Ports wie in der Beschreibung angegeben eintragen."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Marstek Battery Options",
+        "description": "Netzwerk-/Timeout- und Retry-Parameter anpassen; Min Power Delta/Fail-Unavailable steuern."
+      }
+    }
+  }
+}
