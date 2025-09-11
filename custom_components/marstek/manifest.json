@@ -1,0 +1,18 @@
+{
+  "domain": "marstek",
+  "name": "Marstek Energy Storage",
+  "codeowners": ["@nbesseghir"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/nbesseghir/ha-marstek",
+  "issue_tracker": "https://github.com/nbesseghir/ha-marstek/issues",
+  "homeassistant": "2023.1.0",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "0.1.0",
+  "loggers": [
+    "custom_components.marstek",
+    "custom_components.marstek.api",
+    "custom_components.marstek.coordinator"
+  ]
+}

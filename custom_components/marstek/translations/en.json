@@ -1,0 +1,82 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Marstek Battery Setup",
+        "description": "Please enter IP address and ports as specified in the documentation.",
+        "data": {
+          "ip": "IP Address",
+          "port": "Port",
+          "device_id": "Device ID",
+          "scan_interval": "Scan Interval (seconds)",
+          "local_ip": "Home Assistant Local IP",
+          "local_port": "Home Assistant Local Port",
+          "timeout": "Timeout (seconds)"
+        }
+      },
+      "abort": {
+        "reconfigured": "Device reconfigured successfully"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Marstek Battery Options",
+        "description": "Adjust network/timeout and retry parameters; control Min Power Delta/Fail-Unavailable settings.",
+        "data": {
+          "port": "Port",
+          "scan_interval": "Scan Interval (seconds)",
+          "local_ip": "Home Assistant Local IP",
+          "local_port": "Home Assistant Local Port",
+          "timeout": "Timeout (seconds)",
+          "min_power_delta_w": "Minimum Power Delta (W)",
+          "mark_unavailable_on_timeout": "Mark unavailable on timeout"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "bat_soc": {
+        "name": "Battery SoC"
+      },
+      "bat_temp": {
+        "name": "Battery Temperature"
+      },
+      "bat_voltage": {
+        "name": "Battery Voltage"
+      },
+      "bat_capacity": {
+        "name": "Battery Remaining Capacity"
+      },
+      "rated_capacity": {
+        "name": "Battery Rated Capacity"
+      },
+      "bat_power": {
+        "name": "Battery Power"
+      },
+      "pv_power": {
+        "name": "PV Power"
+      },
+      "ongrid_power": {
+        "name": "Grid Power (Import − / Export +)"
+      },
+      "offgrid_power": {
+        "name": "Off-Grid Load Power"
+      },
+      "total_pv_energy": {
+        "name": "Total PV Energy"
+      },
+      "total_grid_output_energy": {
+        "name": "Total Grid Export Energy"
+      },
+      "total_grid_input_energy": {
+        "name": "Total Grid Import Energy"
+      },
+      "total_load_energy": {
+        "name": "Total Load Energy"
+      }
+    }
+  }
+}
