@@ -34,7 +34,7 @@ class MarstekCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
         # retry loop (configurable attempts)
         for i in range(max(1, retries)):
-            status = await self.hass.async_add_executor_job(get_status)
+            status = await self.api.get_status()
             if isinstance(status, dict) and status:
                 break
             await asyncio.sleep(max(0.05, backoff) * (i + 1))
@@ -50,7 +50,7 @@ class MarstekCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         get_mode = getattr(self.api, "get_mode", None)
         if callable(get_mode):
             for i in range(max(1, min(2, retries))):
-                mode = await self.hass.async_add_executor_job(get_mode)
+                mode = await self.api.get_mode()
                 if isinstance(mode, dict):
                     status["_mode"] = mode
                     break
@@ -60,7 +60,7 @@ class MarstekCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         get_bat = getattr(self.api, "get_battery_status", None)
         if callable(get_bat):
             for i in range(max(1, min(2, retries))):
-                bat = await self.hass.async_add_executor_job(get_bat)
+                bat = await self.api.get_battery_status()
                 if isinstance(bat, dict):
                     if "soc" in bat and "bat_soc" not in status:
                         status["bat_soc"] = bat.get("soc")
