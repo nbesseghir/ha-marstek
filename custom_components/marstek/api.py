@@ -1,4 +1,4 @@
-import json
+import json 
 import socket
 import logging
 import asyncio
@@ -27,6 +27,13 @@ class MarstekApiClient:
         self._timeout = float(timeout or 5.0)
         self._local_ip = local_ip
         self._local_port = local_port
+        self._req_id = 0  # for request-id matching
+
+    def _next_id(self) -> int:
+        self._req_id = (self._req_id + 1) & 0x7FFFFFFF
+        if self._req_id == 0:
+            self._req_id = 1
+        return self._req_id
 
     async def _udp_call(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -34,6 +41,12 @@ class MarstekApiClient:
         Returns the parsed JSON dict or None on timeout or error.
         """
         loop = asyncio.get_running_loop()
+
+        # Ensure a fresh request id and work on a copy
+        payload = dict(payload or {})
+        req_id = self._next_id()
+        payload["id"] = req_id
+
         data = json.dumps(payload).encode("utf-8")
 
         # Debug log the outgoing request
@@ -44,11 +57,8 @@ class MarstekApiClient:
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
+            # Keep SO_REUSEADDR; REMOVE SO_REUSEPORT
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                sock.setsockopt(socket.SOL_SOCKET, getattr(socket, "SO_REUSEPORT", 15), 1)
-            except Exception:
-                pass
 
             if self._local_port:
                 try:
@@ -58,6 +68,14 @@ class MarstekApiClient:
                         "UDP bind failed on %s:%s - %s",
                         self._local_ip or "0.0.0.0", self._local_port, exc
                     )
+
+            # Connect so the kernel only accepts packets from the right peer
+            try:
+                sock.connect((self._ip, self._port))
+            except Exception as exc:
+                _LOGGER.error("UDP connect failed to %s:%s - %s", self._ip, self._port, exc)
+                sock.close()
+                return None
 
             sock.setblocking(False)
 
@@ -69,23 +87,47 @@ class MarstekApiClient:
             sock = None  # handover to transport
 
             try:
-                transport.sendto(data, (self._ip, self._port))
+                # On a connected socket, no addr tuple is needed
+                transport.sendto(data)
 
-                # Wait for a single response
-                resp_bytes, addr = await asyncio.wait_for(
-                    recv_queue.get(), timeout=self._timeout
-                )
-                text = resp_bytes.decode("utf-8", "ignore")
+                deadline = loop.time() + self._timeout
+                while True:
+                    remaining = deadline - loop.time()
+                    if remaining <= 0:
+                        _LOGGER.error("UDP timeout waiting for response from %s:%s", self._ip, self._port)
+                        return None
 
-                # Debug log the incoming response
-                _LOGGER.debug("UDP response <- %s:%s | %s", addr[0], addr[1], text)
+                    try:
+                        resp_bytes, addr = await asyncio.wait_for(recv_queue.get(), timeout=remaining)
+                    except asyncio.TimeoutError:
+                        _LOGGER.error("UDP timeout waiting for response from %s:%s", self._ip, self._port)
+                        return None
 
-                obj = json.loads(text)
-                return obj if isinstance(obj, dict) else None
+                    text = resp_bytes.decode("utf-8", "ignore")
+                    _LOGGER.debug("UDP response <- %s:%s | %s", addr[0], addr[1], text)
 
-            except asyncio.TimeoutError:
-                _LOGGER.error("UDP timeout waiting for response from %s:%s", self._ip, self._port)
-                return None
+                    # Sender IP verification (belt & suspenders; connect() already filters)
+                    if addr and addr[0] != self._ip:
+                        _LOGGER.debug("Ignoring packet from unexpected sender %s (expect %s)", addr, self._ip)
+                        continue
+
+                    try:
+                        obj = json.loads(text)
+                    except Exception as exc:
+                        _LOGGER.debug("Ignoring non-JSON UDP payload: %s", exc)
+                        continue
+
+                    if not isinstance(obj, dict):
+                        _LOGGER.debug("Ignoring non-dict UDP JSON")
+                        continue
+
+                    # Request-id verification
+                    if obj.get("id") != req_id:
+                        _LOGGER.debug("Ignoring mismatched reply id=%s (expected %s)", obj.get("id"), req_id)
+                        continue
+
+                    return obj
+
             except Exception as exc:
                 _LOGGER.error("UDP error to %s:%s - %s", self._ip, self._port, exc)
                 return None
