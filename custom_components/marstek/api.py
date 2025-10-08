@@ -1,3 +1,14 @@
+"""
+Marstek Device API Client
+
+This module provides communication with Marstek energy storage devices via UDP.
+
+API Documentation: https://eu.hamedata.com/ems/resource/agreement/MarstekDeviceOpenApi.pdf
+
+The ES (Energy System) component contains the device's basic power information 
+and energy statistics, and can configure or monitor the device's operating status.
+"""
+
 import json 
 import socket
 import logging
@@ -143,7 +154,13 @@ class MarstekApiClient:
 
         return None
 
+
+    # region ES (Energy System) Methods
+    # The ES (Energy System) component contains the device's basic power information 
+    # and energy statistics, and can configure or monitor the device's operating status.
+
     async def get_status(self) -> Optional[Dict[str, Any]]:
+        """ES.GetStatus: Query the device's basic electrical energy information"""
         payload = {"id": 1, "method": "ES.GetStatus", "params": {"id": self._device_id}}
         resp = await self._udp_call(payload)
         if not resp:
@@ -152,6 +169,7 @@ class MarstekApiClient:
         return result if isinstance(result, dict) else resp if isinstance(resp, dict) else None
 
     async def get_mode(self) -> Optional[Dict[str, Any]]:
+        """ES.GetMode: Get information about the operating mode of the device"""
         payload = {"id": 1, "method": "ES.GetMode", "params": {"id": 0}}
         resp = await self._udp_call(payload)
         if not resp:
@@ -160,6 +178,7 @@ class MarstekApiClient:
         return result if isinstance(result, dict) else resp if isinstance(resp, dict) else None
 
     async def set_mode(self, mode: str, **cfg) -> bool:
+        """ES.SetMode: Congure the device's operating mode"""
         config = {"mode": mode}
         for k, v in cfg.items():
             if v is not None:
@@ -173,11 +192,20 @@ class MarstekApiClient:
             ok = result.get("set_result")
             return bool(ok) if ok is not None else True
         return False
+    
+    # endregion ES (Energy System) Methods
+
+
+    # region Bat (Battery) Methods
+    # The Bat (Battery) component contains basic information about the device's battery
 
     async def get_battery_status(self):
+        """Bat.GetStatus: Query the device's battery information and operating status"""
         payload = {"id": 1, "method": "Bat.GetStatus", "params": {"id": 0}}
         resp = await self._udp_call(payload)
         if not resp:
             return None
         result = resp.get("result") if isinstance(resp, dict) else None
         return result if isinstance(result, dict) else resp if isinstance(resp, dict) else None
+    
+    # endregion Bat (Battery) Methods
