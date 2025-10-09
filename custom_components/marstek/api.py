@@ -62,9 +62,15 @@ class MarstekApiClient:
 
         # Debug log the outgoing request
         try:
-            _LOGGER.debug("UDP request -> %s:%s | %s", self._ip, self._port, json.dumps(payload))
+            local_info = ""
+            if self._local_ip or self._local_port:
+                local_info = f" (local: {self._local_ip or 'auto'}:{self._local_port or 'auto'})"
+            _LOGGER.debug("UDP request -> %s:%s%s | %s", self._ip, self._port, local_info, json.dumps(payload))
         except Exception:
-            _LOGGER.debug("UDP request -> %s:%s | (non-serializable payload)", self._ip, self._port)
+            local_info = ""
+            if self._local_ip or self._local_port:
+                local_info = f" (local: {self._local_ip or 'auto'}:{self._local_port or 'auto'})"
+            _LOGGER.debug("UDP request -> %s:%s%s | (non-serializable payload)", self._ip, self._port, local_info)
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
@@ -81,12 +87,12 @@ class MarstekApiClient:
                     )
 
             # Connect so the kernel only accepts packets from the right peer
-            try:
-                sock.connect((self._ip, self._port))
-            except Exception as exc:
-                _LOGGER.error("UDP connect failed to %s:%s - %s", self._ip, self._port, exc)
-                sock.close()
-                return None
+            # # try:
+            # #     sock.connect((self._ip, self._port))
+            # # except Exception as exc:
+            # #     _LOGGER.error("UDP connect failed to %s:%s - %s", self._ip, self._port, exc)
+            # #     sock.close()
+            # #     return None
 
             sock.setblocking(False)
 
@@ -99,7 +105,8 @@ class MarstekApiClient:
 
             try:
                 # On a connected socket, no addr tuple is needed
-                transport.sendto(data)
+                # # transport.sendto(data)
+                transport.sendto(data, (self._ip, self._port))
 
                 deadline = loop.time() + self._timeout
                 while True:
@@ -161,7 +168,7 @@ class MarstekApiClient:
 
     async def get_status(self) -> Optional[Dict[str, Any]]:
         """ES.GetStatus: Query the device's basic electrical energy information"""
-        payload = {"id": 1, "method": "ES.GetStatus", "params": {"id": self._device_id}}
+        payload = {"id": 1, "method": "ES.GetStatus", "params": {"id": "0"}}
         resp = await self._udp_call(payload)
         if not resp:
             return None
