@@ -47,6 +47,7 @@ class MarstekCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             raise UpdateFailed("No valid response from device (ES.GetStatus)")
 
         # fetch mode (best-effort)
+        await asyncio.sleep(float(merged.get("inter_call_delay_s", 0.6)))
         get_mode = getattr(self.api, "get_mode", None)
         if callable(get_mode):
             for i in range(max(1, min(2, retries))):
@@ -57,6 +58,7 @@ class MarstekCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 await asyncio.sleep(max(0.05, backoff) * (i + 1))
 
         # fetch battery status (best-effort)
+        await asyncio.sleep(float(merged.get("inter_call_delay_s", 0.6)))
         get_bat = getattr(self.api, "get_battery_status", None)
         if callable(get_bat):
             for i in range(max(1, min(2, retries))):

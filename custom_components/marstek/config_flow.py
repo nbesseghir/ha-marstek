@@ -3,6 +3,7 @@ from __future__ import annotations
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.core import callback
 
 from .const import (
     DOMAIN,
@@ -52,9 +53,31 @@ class MarstekConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     await self.hass.config_entries.async_reload(entry.entry_id)
                     return self.async_abort(reason="reconfigured")
 
-            return self.async_create_entry(title=f"Marstek ({user_input[CONF_IP]})", data=user_input)
+            data = {
+                CONF_IP: user_input[CONF_IP],
+                CONF_PORT: user_input[CONF_PORT],
+                CONF_DEVICE_ID: user_input[CONF_DEVICE_ID],
+            }
+
+            options = {
+                CONF_SCAN_INTERVAL: user_input.get(CONF_SCAN_INTERVAL),
+                CONF_LOCAL_IP: user_input.get(CONF_LOCAL_IP),
+                CONF_LOCAL_PORT: user_input.get(CONF_LOCAL_PORT),
+                CONF_TIMEOUT: user_input.get(CONF_TIMEOUT),
+            }
+
+            return self.async_create_entry(
+                title=f"Marstek ({user_input[CONF_IP]})",
+                data=data,
+                options=options
+            )
 
         return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return MarstekOptionsFlow(config_entry)
 
 class MarstekOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, entry: config_entries.ConfigEntry) -> None:
@@ -91,6 +114,3 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_FAIL_UNAVAILABLE, default=bool(merged.get(CONF_FAIL_UNAVAILABLE, DEFAULT_FAIL_UNAVAILABLE)), description={"label": "Fail unavailable on timeout"}): bool,
         })
         return self.async_show_form(step_id="init", data_schema=schema)
-
-def async_get_options_flow(config_entry):
-    return MarstekOptionsFlow(config_entry)
