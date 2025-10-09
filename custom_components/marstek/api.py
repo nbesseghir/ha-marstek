@@ -16,6 +16,15 @@ import asyncio
 from typing import Any, Dict, Optional
 
 _LOGGER = logging.getLogger(__name__)
+_PORT_LOCKS: dict[int, asyncio.Lock] = {}
+
+# simple per-port locks to avoid concurrent binds/sends on same port
+def _port_lock(p: int) -> asyncio.Lock:
+    lock = _PORT_LOCKS.get(p)
+    if lock is None:
+        lock = asyncio.Lock()
+        _PORT_LOCKS[p] = lock
+    return lock
 
 
 class _UDPClientProtocol(asyncio.DatagramProtocol):
@@ -60,104 +69,99 @@ class MarstekApiClient:
 
         data = json.dumps(payload).encode("utf-8")
 
+        # Choose the local source port:
+        # - if self._local_port is provided, use it
+        # - otherwise, bind to the device port (your batteries expect src==dst)
+        bind_port = int(self._local_port) if self._local_port else int(self._port)
+        bind_ip = self._local_ip or "0.0.0.0"
+
         # Debug log the outgoing request
         try:
-            local_info = ""
-            if self._local_ip or self._local_port:
-                local_info = f" (local: {self._local_ip or 'auto'}:{self._local_port or 'auto'})"
+            local_info = f" (local: {bind_ip}:{bind_port})"
             _LOGGER.debug("UDP request -> %s:%s%s | %s", self._ip, self._port, local_info, json.dumps(payload))
         except Exception:
-            local_info = ""
-            if self._local_ip or self._local_port:
-                local_info = f" (local: {self._local_ip or 'auto'}:{self._local_port or 'auto'})"
-            _LOGGER.debug("UDP request -> %s:%s%s | (non-serializable payload)", self._ip, self._port, local_info)
+            _LOGGER.debug("UDP request -> %s:%s (local: %s:%s) | (non-serializable payload)", self._ip, self._port, bind_ip, bind_port)
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            # Keep SO_REUSEADDR; REMOVE SO_REUSEPORT
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-            if self._local_port:
-                try:
-                    sock.bind((self._local_ip or "0.0.0.0", int(self._local_port)))
-                except Exception as exc:
-                    _LOGGER.error(
-                        "UDP bind failed on %s:%s - %s",
-                        self._local_ip or "0.0.0.0", self._local_port, exc
-                    )
-
-            # Connect so the kernel only accepts packets from the right peer
-            # # try:
-            # #     sock.connect((self._ip, self._port))
-            # # except Exception as exc:
-            # #     _LOGGER.error("UDP connect failed to %s:%s - %s", self._ip, self._port, exc)
-            # #     sock.close()
-            # #     return None
-
-            sock.setblocking(False)
-
-            recv_queue: asyncio.Queue[tuple[bytes, tuple]] = asyncio.Queue()
-            transport, protocol = await loop.create_datagram_endpoint(
-                lambda: _UDPClientProtocol(recv_queue),
-                sock=sock
-            )
-            sock = None  # handover to transport
-
+        # serialize per local port to avoid concurrent bind/use races
+        async with _port_lock(bind_port):
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
-                # On a connected socket, no addr tuple is needed
-                # # transport.sendto(data)
-                transport.sendto(data, (self._ip, self._port))
+                # Keep SO_REUSEADDR; DO NOT use SO_REUSEPORT
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-                deadline = loop.time() + self._timeout
-                while True:
-                    remaining = deadline - loop.time()
-                    if remaining <= 0:
-                        _LOGGER.error("UDP timeout waiting for response from %s:%s", self._ip, self._port)
-                        return None
-
-                    try:
-                        resp_bytes, addr = await asyncio.wait_for(recv_queue.get(), timeout=remaining)
-                    except asyncio.TimeoutError:
-                        _LOGGER.error("UDP timeout waiting for response from %s:%s", self._ip, self._port)
-                        return None
-
-                    text = resp_bytes.decode("utf-8", "ignore")
-                    _LOGGER.debug("UDP response <- %s:%s | %s", addr[0], addr[1], text)
-
-                    # Sender IP verification (belt & suspenders; connect() already filters)
-                    if addr and addr[0] != self._ip:
-                        _LOGGER.debug("Ignoring packet from unexpected sender %s (expect %s)", addr, self._ip)
-                        continue
-
-                    try:
-                        obj = json.loads(text)
-                    except Exception as exc:
-                        _LOGGER.debug("Ignoring non-JSON UDP payload: %s", exc)
-                        continue
-
-                    if not isinstance(obj, dict):
-                        _LOGGER.debug("Ignoring non-dict UDP JSON")
-                        continue
-
-                    # Request-id verification
-                    if obj.get("id") != req_id:
-                        _LOGGER.debug("Ignoring mismatched reply id=%s (expected %s)", obj.get("id"), req_id)
-                        continue
-
-                    return obj
-
-            except Exception as exc:
-                _LOGGER.error("UDP error to %s:%s - %s", self._ip, self._port, exc)
-                return None
-            finally:
-                transport.close()
-
-        finally:
-            if sock is not None:
+                # Bind the local source port we want (src==dst behavior)
                 try:
-                    sock.close()
-                except Exception:
-                    pass
+                    sock.bind((bind_ip, bind_port))
+                except Exception as exc:
+                    _LOGGER.error("UDP bind failed on %s:%s - %s", bind_ip, bind_port, exc)
+                    try:
+                        sock.close()
+                    finally:
+                        return None
+
+                sock.setblocking(False)
+
+                recv_queue: asyncio.Queue[tuple[bytes, tuple]] = asyncio.Queue()
+                transport, protocol = await loop.create_datagram_endpoint(
+                    lambda: _UDPClientProtocol(recv_queue),
+                    sock=sock
+                )
+                sock = None  # handover to transport
+
+                try:
+                    # Unconnected socket: always pass destination tuple
+                    transport.sendto(data, (self._ip, int(self._port)))
+
+                    deadline = loop.time() + self._timeout
+                    while True:
+                        remaining = deadline - loop.time()
+                        if remaining <= 0:
+                            _LOGGER.error("UDP timeout waiting for response from %s:%s", self._ip, self._port)
+                            return None
+
+                        try:
+                            resp_bytes, addr = await asyncio.wait_for(recv_queue.get(), timeout=remaining)
+                        except asyncio.TimeoutError:
+                            _LOGGER.error("UDP timeout waiting for response from %s:%s", self._ip, self._port)
+                            return None
+
+                        text = resp_bytes.decode("utf-8", "ignore")
+                        _LOGGER.debug("UDP response <- %s:%s | %s", addr[0], addr[1], text)
+
+                        # Only check sender IP (port may differ on some firmwares, but yours now matches)
+                        if addr and addr[0] != self._ip:
+                            _LOGGER.debug("Ignoring packet from unexpected sender %s (expect %s)", addr, self._ip)
+                            continue
+
+                        try:
+                            obj = json.loads(text)
+                        except Exception as exc:
+                            _LOGGER.debug("Ignoring non-JSON UDP payload: %s", exc)
+                            continue
+
+                        if not isinstance(obj, dict):
+                            _LOGGER.debug("Ignoring non-dict UDP JSON")
+                            continue
+
+                        # Request-id verification
+                        if obj.get("id") != req_id:
+                            _LOGGER.debug("Ignoring mismatched reply id=%s (expected %s)", obj.get("id"), req_id)
+                            continue
+
+                        return obj
+
+                except Exception as exc:
+                    _LOGGER.error("UDP error to %s:%s - %s", self._ip, self._port, exc)
+                    return None
+                finally:
+                    transport.close()
+
+            finally:
+                if sock is not None:
+                    try:
+                        sock.close()
+                    except Exception:
+                        pass
 
         return None
 
