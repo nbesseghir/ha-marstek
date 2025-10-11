@@ -16,8 +16,6 @@ from .const import (
     CONF_LOCAL_IP,
     CONF_LOCAL_PORT,
     CONF_TIMEOUT,
-    CONF_RETRIES, DEFAULT_RETRIES,
-    CONF_BACKOFF, DEFAULT_BACKOFF,
     CONF_MIN_POWER_DELTA_W, DEFAULT_MIN_POWER_DELTA_W,
     CONF_FAIL_UNAVAILABLE, DEFAULT_FAIL_UNAVAILABLE,
 )
@@ -86,13 +84,11 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
             options = dict(self.entry.options)
-            for key in (CONF_PORT, CONF_SCAN_INTERVAL, CONF_LOCAL_PORT, CONF_TIMEOUT, CONF_RETRIES, CONF_BACKOFF, CONF_MIN_POWER_DELTA_W, CONF_FAIL_UNAVAILABLE):
+            for key in (CONF_PORT, CONF_SCAN_INTERVAL, CONF_LOCAL_PORT, CONF_TIMEOUT, CONF_MIN_POWER_DELTA_W, CONF_FAIL_UNAVAILABLE):
                 if key in user_input and user_input[key] is not None:
                     try:
-                        if key in (CONF_RETRIES, CONF_MIN_POWER_DELTA_W):
+                        if key in (CONF_MIN_POWER_DELTA_W,):
                             options[key] = int(user_input[key])
-                        elif key in (CONF_BACKOFF,):
-                            options[key] = float(user_input[key])
                         else:
                             options[key] = int(user_input[key]) if isinstance(user_input[key], (int, float, str)) else user_input[key]
                     except Exception:
@@ -108,8 +104,6 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_LOCAL_IP, default=merged.get(CONF_LOCAL_IP), description={"label": "local_IP Homeassistant"}): str,
             vol.Optional(CONF_LOCAL_PORT, default=merged.get(CONF_LOCAL_PORT, 30000), description={"label": "local_port Homeassistant"}): int,
             vol.Optional(CONF_TIMEOUT, default=int(merged.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)), description={"label": "Timeout (s)"}): int,
-            vol.Optional(CONF_RETRIES, default=int(merged.get(CONF_RETRIES, DEFAULT_RETRIES)), description={"label": "Retries per cycle"}): int,
-            vol.Optional(CONF_BACKOFF, default=float(merged.get(CONF_BACKOFF, DEFAULT_BACKOFF)), description={"label": "Backoff (s)"}): float,
             vol.Optional(CONF_MIN_POWER_DELTA_W, default=int(merged.get(CONF_MIN_POWER_DELTA_W, DEFAULT_MIN_POWER_DELTA_W)), description={"label": "Min power delta (W)"}): int,
             vol.Optional(CONF_FAIL_UNAVAILABLE, default=bool(merged.get(CONF_FAIL_UNAVAILABLE, DEFAULT_FAIL_UNAVAILABLE)), description={"label": "Fail unavailable on timeout"}): bool,
         })
