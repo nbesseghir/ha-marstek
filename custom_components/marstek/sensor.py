@@ -18,23 +18,6 @@ from homeassistant.const import UnitOfPower, UnitOfEnergy, PERCENTAGE, UnitOfEle
 from .const import DOMAIN
 from .coordinator import MarstekCoordinator
 
-FRIENDLY_NAMES = {
-    "soc": "Battery SoC",
-    "bat_soc": "Battery SoC",
-    "bat_temp": "Battery Temperature",
-    "bat_capacity": "Battery Remaining Capacity",
-    "rated_capacity": "Battery Rated Capacity",
-    "bat_cap": "Battery Capacity",
-    "bat_power": "Battery Power",
-    "pv_power": "PV Power",
-    "ongrid_power": "Grid Export Power",
-    "offgrid_power": "Grid Import Power",
-    "total_pv_energy": "Total PV Energy",
-    "total_grid_output_energy": "Total Grid Export Energy",
-    "total_grid_input_energy": "Total Grid Import Energy",
-    "total_load_energy": "Total Load Energy",
-}
-
 SCALE = {
     "total_grid_output_energy": 0.1,
     "total_grid_input_energy": 0.1,
@@ -43,20 +26,20 @@ SCALE = {
 def classify(key: str):
     k = key.lower()
     if k in ("bat_temp",):
-        return FRIENDLY_NAMES.get(key, key), UnitOfTemperature.CELSIUS, SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT
+        return None, UnitOfTemperature.CELSIUS, SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT
     if k.startswith("total_") and "energy" in k:
-        return FRIENDLY_NAMES.get(key, key), UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING
+        return None, UnitOfEnergy.KILO_WATT_HOUR, SensorDeviceClass.ENERGY, SensorStateClass.TOTAL_INCREASING
     if k.endswith("_power") or k.endswith("power"):
-        return FRIENDLY_NAMES.get(key, key), UnitOfPower.WATT, SensorDeviceClass.POWER, SensorStateClass.MEASUREMENT
+        return None, UnitOfPower.WATT, SensorDeviceClass.POWER, SensorStateClass.MEASUREMENT
     if k in ("bat_soc", "soc") or ("soc" in k and "bat" in k):
-        return FRIENDLY_NAMES.get(key, key), PERCENTAGE, SensorDeviceClass.BATTERY, SensorStateClass.MEASUREMENT
+        return None, PERCENTAGE, SensorDeviceClass.BATTERY, SensorStateClass.MEASUREMENT
     if k == "bat_cap" or ("cap" in k and "bat" in k) or k in ("bat_capacity", "rated_capacity"):
-        return FRIENDLY_NAMES.get(key, key), UnitOfEnergy.WATT_HOUR, None, None
+        return None, UnitOfEnergy.WATT_HOUR, None, None
     if "volt" in k:
-        return FRIENDLY_NAMES.get(key, key), UnitOfElectricPotential.VOLT, SensorDeviceClass.VOLTAGE, SensorStateClass.MEASUREMENT
+        return None, UnitOfElectricPotential.VOLT, SensorDeviceClass.VOLTAGE, SensorStateClass.MEASUREMENT
     if "amp" in k or "current" in k:
-        return FRIENDLY_NAMES.get(key, key), UnitOfElectricCurrent.AMPERE, SensorDeviceClass.CURRENT, SensorStateClass.MEASUREMENT
-    return FRIENDLY_NAMES.get(key, key), None, None, None
+        return None, UnitOfElectricCurrent.AMPERE, SensorDeviceClass.CURRENT, SensorStateClass.MEASUREMENT
+    return None, None, None, None
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
     data = hass.data[DOMAIN][entry.entry_id]
@@ -68,13 +51,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     added_keys: set[str] = set()
 
     # Always add Battery sensors
-    entities.append(MarstekScalarSensor(coord, ip, device_id, "bat_soc", FRIENDLY_NAMES.get("bat_soc", "Battery SoC"), PERCENTAGE, SensorDeviceClass.BATTERY, SensorStateClass.MEASUREMENT, 1.0))
+    entities.append(MarstekScalarSensor(coord, ip, device_id, "bat_soc", None, PERCENTAGE, SensorDeviceClass.BATTERY, SensorStateClass.MEASUREMENT, 1.0))
     added_keys.add("bat_soc")
-    entities.append(MarstekScalarSensor(coord, ip, device_id, "bat_temp", FRIENDLY_NAMES.get("bat_temp", "Battery Temperature"), UnitOfTemperature.CELSIUS, SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, 1.0))
+    entities.append(MarstekScalarSensor(coord, ip, device_id, "bat_temp", None, UnitOfTemperature.CELSIUS, SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, 1.0))
     added_keys.add("bat_temp")
-    entities.append(MarstekScalarSensor(coord, ip, device_id, "bat_capacity", FRIENDLY_NAMES.get("bat_capacity", "Battery Remaining Capacity"), UnitOfEnergy.WATT_HOUR, None, None, 1.0))
+    entities.append(MarstekScalarSensor(coord, ip, device_id, "bat_capacity", None, UnitOfEnergy.WATT_HOUR, None, None, 1.0))
     added_keys.add("bat_capacity")
-    entities.append(MarstekScalarSensor(coord, ip, device_id, "rated_capacity", FRIENDLY_NAMES.get("rated_capacity", "Battery Rated Capacity"), UnitOfEnergy.WATT_HOUR, None, None, 1.0))
+    entities.append(MarstekScalarSensor(coord, ip, device_id, "rated_capacity", None, UnitOfEnergy.WATT_HOUR, None, None, 1.0))
     added_keys.add("rated_capacity")
 
     # Add sensors for any numeric payload keys
@@ -121,9 +104,16 @@ class MarstekScalarSensor(BaseEntity, SensorEntity):
         super().__init__(coordinator, ip, device_id)
         self._key = key
         self._scale = float(scale or 1.0)
-        self._attr_name = name or key
+        
+        # Set translation key for HA to find translations
+        self._attr_translation_key = key
+        
+        # Fallback name if no translation exists
+        self._attr_name = name or key.replace('_', ' ').title()
+        
         safe_key = re.sub(r"[^a-zA-Z0-9_]+", "_", key)
         self._attr_unique_id = f"marstek_{ip}_{device_id}_sensor_{safe_key}"
+        
         if unit:
             self._attr_native_unit_of_measurement = unit
         if device_class:
