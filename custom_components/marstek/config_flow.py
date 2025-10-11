@@ -17,7 +17,7 @@ from .const import (
     CONF_LOCAL_PORT,
     CONF_TIMEOUT,
     CONF_MIN_POWER_DELTA_W, DEFAULT_MIN_POWER_DELTA_W,
-    CONF_FAIL_UNAVAILABLE, DEFAULT_FAIL_UNAVAILABLE,
+    CONF_MARK_UNAVAILABLE_ON_TIMEOUT, DEFAULT_MARK_UNAVAILABLE_ON_TIMEOUT,
 )
 
 DATA_SCHEMA = vol.Schema({
@@ -84,17 +84,15 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None) -> FlowResult:
         if user_input is not None:
             options = dict(self.entry.options)
-            for key in (CONF_PORT, CONF_SCAN_INTERVAL, CONF_LOCAL_PORT, CONF_TIMEOUT, CONF_MIN_POWER_DELTA_W, CONF_FAIL_UNAVAILABLE):
-                if key in user_input and user_input[key] is not None:
-                    try:
-                        if key in (CONF_MIN_POWER_DELTA_W,):
-                            options[key] = int(user_input[key])
-                        else:
-                            options[key] = int(user_input[key]) if isinstance(user_input[key], (int, float, str)) else user_input[key]
-                    except Exception:
-                        options[key] = user_input[key]
-            if user_input.get(CONF_LOCAL_IP) is not None:
-                options[CONF_LOCAL_IP] = user_input[CONF_LOCAL_IP]
+            options.update({
+                CONF_PORT: int(user_input[CONF_PORT]),
+                CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
+                CONF_LOCAL_PORT: int(user_input[CONF_LOCAL_PORT]),
+                CONF_TIMEOUT: int(user_input[CONF_TIMEOUT]),
+                CONF_MIN_POWER_DELTA_W: int(user_input[CONF_MIN_POWER_DELTA_W]),
+                CONF_MARK_UNAVAILABLE_ON_TIMEOUT: user_input[CONF_MARK_UNAVAILABLE_ON_TIMEOUT],
+                CONF_LOCAL_IP: user_input[CONF_LOCAL_IP],
+            })
             return self.async_create_entry(title="", data=options)
 
         merged = {**self.entry.data, **self.entry.options}
@@ -105,6 +103,6 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(CONF_LOCAL_PORT, default=merged.get(CONF_LOCAL_PORT, 30000), description={"label": "local_port Homeassistant"}): int,
             vol.Optional(CONF_TIMEOUT, default=int(merged.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)), description={"label": "Timeout (s)"}): int,
             vol.Optional(CONF_MIN_POWER_DELTA_W, default=int(merged.get(CONF_MIN_POWER_DELTA_W, DEFAULT_MIN_POWER_DELTA_W)), description={"label": "Min power delta (W)"}): int,
-            vol.Optional(CONF_FAIL_UNAVAILABLE, default=bool(merged.get(CONF_FAIL_UNAVAILABLE, DEFAULT_FAIL_UNAVAILABLE)), description={"label": "Fail unavailable on timeout"}): bool,
+            vol.Optional(CONF_MARK_UNAVAILABLE_ON_TIMEOUT, default=bool(merged.get(CONF_MARK_UNAVAILABLE_ON_TIMEOUT, DEFAULT_MARK_UNAVAILABLE_ON_TIMEOUT)), description={"label": "Fail unavailable on timeout"}): bool,
         })
         return self.async_show_form(step_id="init", data_schema=schema)

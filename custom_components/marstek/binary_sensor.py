@@ -49,7 +49,7 @@ class ChargePermissionBinary(BaseEntity, BinarySensorEntity):
         data = self.coordinator.data or {}
         entry = next((e for e in self.hass.config_entries.async_entries(DOMAIN) if e.entry_id in self.hass.data.get(DOMAIN, {})), None)
         merged = {**(entry.data if entry else {}), **(entry.options if entry else {})}
-        fail_unavail = bool(merged.get("fail_unavailable", False))
+        fail_unavail = bool(merged.get("mark_unavailable_on_timeout", False))
         if fail_unavail:
             return bool(data) and not data.get("_stale", False)
         return True
@@ -76,7 +76,7 @@ class DischargePermissionBinary(BaseEntity, BinarySensorEntity):
         data = self.coordinator.data or {}
         entry = next((e for e in self.hass.config_entries.async_entries(DOMAIN) if e.entry_id in self.hass.data.get(DOMAIN, {})), None)
         merged = {**(entry.data if entry else {}), **(entry.options if entry else {})}
-        fail_unavail = bool(merged.get("fail_unavailable", False))
+        fail_unavail = bool(merged.get("mark_unavailable_on_timeout", False))
         if fail_unavail:
             return bool(data) and not data.get("_stale", False)
         return True
