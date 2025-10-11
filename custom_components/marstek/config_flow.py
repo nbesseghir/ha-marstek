@@ -21,13 +21,14 @@ from .const import (
 )
 
 DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_IP, description={"label": "IP* (Marstek Battery)"}): str,
-    vol.Optional(CONF_PORT, default=30000, description={"label": "Port (default 30000)"}): int,
-    vol.Required(CONF_DEVICE_ID, default="0", description={"label": "Device ID* (default 0)"}): str,
-    vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL, description={"label": "Scan Interval (seconds)"}): int,
-    vol.Optional(CONF_LOCAL_IP, description={"label": "local_IP Homeassistant"}): str,
-    vol.Optional(CONF_LOCAL_PORT, default=30000, description={"label": "local_port Homeassistant (default 30000)"}): int,
-    vol.Optional(CONF_TIMEOUT, default=int(DEFAULT_TIMEOUT), description={"label": "Timeout (s)"}): int,
+    vol.Required(CONF_IP): str,
+    vol.Optional(CONF_PORT, default=30000): int,
+    vol.Required(CONF_DEVICE_ID, default="0"): str,
+
+    vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+    vol.Optional(CONF_LOCAL_IP): str,
+    vol.Optional(CONF_LOCAL_PORT, default=30000): int,
+    vol.Optional(CONF_TIMEOUT, default=int(DEFAULT_TIMEOUT)): int,
 })
 
 class MarstekConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -97,12 +98,12 @@ class MarstekOptionsFlow(config_entries.OptionsFlow):
 
         merged = {**self.entry.data, **self.entry.options}
         schema = vol.Schema({
-            vol.Optional(CONF_PORT, default=merged.get(CONF_PORT, 30000), description={"label": "Port"}): int,
-            vol.Optional(CONF_SCAN_INTERVAL, default=merged.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL), description={"label": "Scan Interval (seconds)"}): int,
-            vol.Optional(CONF_LOCAL_IP, default=merged.get(CONF_LOCAL_IP), description={"label": "local_IP Homeassistant"}): str,
-            vol.Optional(CONF_LOCAL_PORT, default=merged.get(CONF_LOCAL_PORT, 30000), description={"label": "local_port Homeassistant"}): int,
-            vol.Optional(CONF_TIMEOUT, default=int(merged.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)), description={"label": "Timeout (s)"}): int,
-            vol.Optional(CONF_MIN_POWER_DELTA_W, default=int(merged.get(CONF_MIN_POWER_DELTA_W, DEFAULT_MIN_POWER_DELTA_W)), description={"label": "Min power delta (W)"}): int,
-            vol.Optional(CONF_MARK_UNAVAILABLE_ON_TIMEOUT, default=bool(merged.get(CONF_MARK_UNAVAILABLE_ON_TIMEOUT, DEFAULT_MARK_UNAVAILABLE_ON_TIMEOUT)), description={"label": "Fail unavailable on timeout"}): bool,
+            vol.Optional(CONF_PORT, default=merged.get(CONF_PORT, 30000)): int,
+            vol.Optional(CONF_SCAN_INTERVAL, default=merged.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): int,
+            vol.Optional(CONF_LOCAL_IP, default=merged.get(CONF_LOCAL_IP)): str,
+            vol.Optional(CONF_LOCAL_PORT, default=merged.get(CONF_LOCAL_PORT, 30000)): int,
+            vol.Optional(CONF_TIMEOUT, default=int(merged.get(CONF_TIMEOUT, DEFAULT_TIMEOUT))): int,
+            vol.Optional(CONF_MIN_POWER_DELTA_W, default=int(merged.get(CONF_MIN_POWER_DELTA_W, DEFAULT_MIN_POWER_DELTA_W))): int,
+            vol.Optional(CONF_MARK_UNAVAILABLE_ON_TIMEOUT, default=bool(merged.get(CONF_MARK_UNAVAILABLE_ON_TIMEOUT, DEFAULT_MARK_UNAVAILABLE_ON_TIMEOUT))): bool,
         })
         return self.async_show_form(step_id="init", data_schema=schema)

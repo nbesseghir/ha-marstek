@@ -3,7 +3,16 @@
     "step": {
       "user": {
         "title": "Marstek Battery Setup",
-        "description": "Please enter IP address and ports as specified in the documentation."
+        "description": "Please enter IP address and ports as specified in the documentation.",
+        "data": {
+          "ip": "IP Address",
+          "port": "Port",
+          "device_id": "Device ID",
+          "scan_interval": "Scan Interval (seconds)",
+          "local_ip": "Home Assistant Local IP", 
+          "local_port": "Home Assistant Local Port",
+          "timeout": "Timeout (seconds)"
+        }
       },
       "abort": {
         "reconfigured": "Device reconfigured successfully"
@@ -14,7 +23,16 @@
     "step": {
       "init": {
         "title": "Marstek Battery Options",
-        "description": "Adjust network/timeout and retry parameters; control Min Power Delta/Fail-Unavailable settings."
+        "description": "Adjust network/timeout and retry parameters; control Min Power Delta/Fail-Unavailable settings.",
+        "data": {
+          "port": "Port",
+          "scan_interval": "Scan Interval (seconds)",
+          "local_ip": "Home Assistant Local IP",
+          "local_port": "Home Assistant Local Port", 
+          "timeout": "Timeout (seconds)",
+          "min_power_delta_w": "Minimum Power Delta (W)",
+          "mark_unavailable_on_timeout": "Mark unavailable on timeout"
+        }
       }
     }
   }
