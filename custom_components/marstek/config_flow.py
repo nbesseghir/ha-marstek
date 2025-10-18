@@ -25,9 +25,6 @@ DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_IP): str,
     vol.Optional(CONF_PORT, default=30000): int,
     vol.Required(CONF_DEVICE_ID, default="0"): str,
-    vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
-    vol.Optional(CONF_LOCAL_IP, default=""): str,
-    vol.Optional(CONF_LOCAL_PORT): vol.Any(None, int),
 })
 
 class MarstekConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
