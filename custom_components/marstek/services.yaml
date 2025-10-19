@@ -1,0 +1,4 @@
+refresh_now:
+  name: Refresh Now
+  description: Force an immediate update of Marstek device data
+  fields: {}
