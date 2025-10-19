@@ -41,12 +41,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Ensure manifest.json version matches tag vX.Y.Z
-      - name: Ensure manifest version matches tag
+      # Ensure manifest version matches tag
+      - name: Check version
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           TAG_NO_V="${TAG#v}"
-          MANIFEST_VERSION=$(jq -r '.version' custom_components/<your_domain>/manifest.json)
+          MANIFEST_VERSION=$(jq -r '.version' custom_components/marstek/manifest.json)
           echo "Tag: $TAG | Manifest: $MANIFEST_VERSION"
           test "$MANIFEST_VERSION" = "$TAG_NO_V"
 
