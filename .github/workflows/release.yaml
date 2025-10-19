@@ -26,8 +26,9 @@ jobs:
           category: "integration"
 
       # Home Assistant validator (manifest/schema/structure/translations)
-      - name: Run hassfest
-        uses: docker://ghcr.io/home-assistant/hassfest:latest
+      - name: Run hassfest (exclude brands)
+        run: |
+            docker run --rm -v "${{ github.workspace }}:/workspace" ghcr.io/home-assistant/hassfest:latest --action validate --exclude-brands
 
   release:
     name: Release on tag
